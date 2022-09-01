@@ -9,12 +9,19 @@ import os
 from data import build_train_dataset
 from gmflow.gmflow import GMFlow
 from loss import flow_loss_func
-from evaluate import (validate_chairs, validate_things, validate_sintel, validate_kitti,
+from evaluate import (validate_chairs, validate_things, validate_sintel, validate_kitti, validate_omni, validate_flow360,
                       create_sintel_submission, create_kitti_submission, inference_on_dir)
 
 from utils.logger import Logger
 from utils import misc
 from utils.dist_utils import get_dist_info, init_dist, setup_for_distributed
+
+
+# import sys
+# sys.path.append("/media/cartizzu/DATA/LIN/2_CODE/2_OPTICAL_FLOW/PanoFlow/")
+
+# from opticalflow.api import init_model
+# from opticalflow.api.evaluate import validate_flow360, validate_flow360_cfe, validate_omni_cfe, validate_omni
 
 
 def get_args_parser():
@@ -113,6 +120,9 @@ def get_args_parser():
     parser.add_argument('--count_time', action='store_true',
                         help='measure the inference time on sintel')
 
+    # For Flow 360 deg
+    parser.add_argument('--cfe_activate', action='store_true')
+
     return parser
 
 
@@ -160,7 +170,7 @@ def main(args):
                    num_transformer_layers=args.num_transformer_layers,
                    ).to(device)
     print(model)
-    
+
     if not args.eval and not args.submission and not args.inference_dir:
         print('Model definition:')
         print(model)
@@ -256,6 +266,50 @@ def main(args):
                                           prop_radius_list=args.prop_radius_list,
                                           )
             val_results.update(results_dict)
+
+        if 'omni' in args.val_dataset:
+            add_args = "E1+UP"
+            ckpt_name = args.resume.split("_")[-1].split(".")[0]
+            # print(str(args.validation[0]))
+            run_name = os.path.join('./OUTPUT/', 'EVAL_'+str(args.val_dataset[0])+'_'+ckpt_name+'_'+add_args+'_'+str(args.cfe_activate)+'.txt')
+            print(run_name)
+            save_file = open(run_name, 'w')
+            save_file.write(args.resume)
+            save_file.write('\n\n')
+            save_file.write(repr(model))
+            save_file.write('\n\n')
+            results_dict = validate_omni(model_without_ddp,
+                                         padding_factor=args.padding_factor,
+                                         with_speed_metric=args.with_speed_metric,
+                                         attn_splits_list=args.attn_splits_list,
+                                         corr_radius_list=args.corr_radius_list,
+                                         prop_radius_list=args.prop_radius_list,
+                                         cfe_activate=args.cfe_activate,
+                                         )
+            val_results.update(results_dict)
+            print(results_dict, file=save_file)
+
+        if 'flow360' in args.val_dataset:
+            add_args = "UP"
+            ckpt_name = args.resume.split("_")[-1].split(".")[0]
+            # print(str(args.validation[0]))
+            run_name = os.path.join('./OUTPUT/', 'EVAL_'+str(args.val_dataset[0])+'_'+ckpt_name+'_'+add_args+'_'+str(args.cfe_activate)+'.txt')
+            print(run_name)
+            save_file = open(run_name, 'w')
+            save_file.write(args.resume)
+            save_file.write('\n\n')
+            save_file.write(repr(model))
+            save_file.write('\n\n')
+            results_dict = validate_flow360(model_without_ddp,
+                                            padding_factor=args.padding_factor,
+                                            with_speed_metric=args.with_speed_metric,
+                                            attn_splits_list=args.attn_splits_list,
+                                            corr_radius_list=args.corr_radius_list,
+                                            prop_radius_list=args.prop_radius_list,
+                                            cfe_activate=args.cfe_activate,
+                                            )
+            val_results.update(results_dict)
+            print(results_dict, file=save_file)
 
         if args.save_eval_to_file:
             misc.check_path(args.checkpoint_dir)

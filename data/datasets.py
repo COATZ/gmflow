@@ -268,6 +268,56 @@ class HD1K(FlowDataset):
             seq_ix += 1
 
 
+class OmniDataset(FlowDataset):
+
+    def __init__(self,
+                 aug_params=None,
+                 root='datasets/OMNIFLOWNET_DATASET',
+                 dstype='Forest',
+                 is_test=False):
+        super(OmniDataset, self).__init__(aug_params)
+
+        self.is_test = is_test
+        self.dstype = dstype
+
+        for id in range(5):
+            if id == 0:
+                name = self.dstype
+            else:
+                name = f'{self.dstype}_{id}'
+
+            flow_root = osp.join(root, dstype, name, 'ground_truth')
+            image_root = osp.join(root, dstype, name, 'images')
+
+            image_list = sorted(glob(osp.join(image_root, '*.png')))
+            for i in range(len(image_list) - 1):
+                self.image_list += [[image_list[i], image_list[i + 1]]]
+                self.extra_info += [i]  # frame_id
+
+            self.flow_list += sorted(
+                glob(osp.join(flow_root, '*.flo')))[0:-1]
+
+
+class Flow360(FlowDataset):
+
+    def __init__(self,
+                 aug_params=None,
+                 split='train',
+                 root='datasets/Flow360',
+                 dstype='sunny'):
+        super(Flow360, self).__init__(aug_params)
+
+        flow_root = osp.join(root, split, dstype, 'flow')
+        image_root = osp.join(root, split, dstype, 'img')
+
+        for scene in os.listdir(image_root):
+            image_list = sorted(glob(osp.join(image_root, scene, '*.jpg')))
+            for i in range(len(image_list) - 1):
+                self.image_list += [[image_list[i], image_list[i + 1]]]
+                self.extra_info += [(scene, i)]  # scene and frame_id
+
+            self.flow_list += sorted(glob(osp.join(flow_root, scene, '*.flo')))
+
 def build_train_dataset(args):
     """ Create the data loader for the corresponding training set """
     if args.stage == 'chairs':

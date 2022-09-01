@@ -2,16 +2,51 @@ import torch.nn as nn
 
 from .trident_conv import MultiScaleTridentConv
 
+from gmflow.DeformConv2d_sphe import DeformConv2d_sphe2
+
 
 class ResidualBlock(nn.Module):
     def __init__(self, in_planes, planes, norm_layer=nn.InstanceNorm2d, stride=1, dilation=1,
                  ):
         super(ResidualBlock, self).__init__()
 
-        self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3,
-                               dilation=dilation, padding=dilation, stride=stride, bias=False)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3,
-                               dilation=dilation, padding=dilation, bias=False)
+        self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, dilation=dilation, padding=dilation, stride=stride, bias=False)
+        # self.conv1 = DeformConv2d_sphe2(in_planes, planes, kernel_size=3, dilation=dilation, padding=dilation, stride=stride, bias=False)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, dilation=dilation, padding=dilation, bias=False)
+        # self.conv2 = DeformConv2d_sphe2(planes, planes, kernel_size=3, dilation=dilation, padding=dilation, bias=False)
+        self.relu = nn.ReLU(inplace=True)
+
+        self.norm1 = norm_layer(planes)
+        self.norm2 = norm_layer(planes)
+        if not stride == 1 or in_planes != planes:
+            self.norm3 = norm_layer(planes)
+
+        if stride == 1 and in_planes == planes:
+            self.downsample = None
+        else:
+            self.downsample = nn.Sequential(
+                nn.Conv2d(in_planes, planes, kernel_size=1, stride=stride), self.norm3)
+
+    def forward(self, x):
+        y = x
+        y = self.relu(self.norm1(self.conv1(y)))
+        y = self.relu(self.norm2(self.conv2(y)))
+
+        if self.downsample is not None:
+            x = self.downsample(x)
+
+        return self.relu(x + y)
+
+
+class ResidualBlock_sphe(nn.Module):
+    def __init__(self, in_planes, planes, norm_layer=nn.InstanceNorm2d, stride=1, dilation=1,
+                 ):
+        super(ResidualBlock_sphe, self).__init__()
+
+        # self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, dilation=dilation, padding=dilation, stride=stride, bias=False)
+        self.conv1 = DeformConv2d_sphe2(in_planes, planes, kernel_size=3, dilation=dilation, padding=dilation, stride=stride, bias=False)
+        # self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, dilation=dilation, padding=dilation, bias=False)
+        self.conv2 = DeformConv2d_sphe2(planes, planes, kernel_size=3, dilation=dilation, padding=dilation, bias=False)
         self.relu = nn.ReLU(inplace=True)
 
         self.norm1 = norm_layer(planes)
@@ -48,6 +83,7 @@ class CNNEncoder(nn.Module):
         feature_dims = [64, 96, 128]
 
         self.conv1 = nn.Conv2d(3, feature_dims[0], kernel_size=7, stride=2, padding=3, bias=False)  # 1/2
+        # self.conv1 = DeformConv2d_sphe2(3, feature_dims[0], kernel_size=7, stride=2, padding=3, bias=False)  # 1/2
         self.norm1 = norm_layer(feature_dims[0])
         self.relu1 = nn.ReLU(inplace=True)
 
@@ -81,7 +117,7 @@ class CNNEncoder(nn.Module):
                                                       )
 
         for m in self.modules():
-            if isinstance(m, nn.Conv2d):
+            if isinstance(m, nn.Conv2d) or isinstance(m, DeformConv2d_sphe2):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
             elif isinstance(m, (nn.BatchNorm2d, nn.InstanceNorm2d, nn.GroupNorm)):
                 if m.weight is not None:
@@ -92,6 +128,15 @@ class CNNEncoder(nn.Module):
     def _make_layer(self, dim, stride=1, dilation=1, norm_layer=nn.InstanceNorm2d):
         layer1 = ResidualBlock(self.in_planes, dim, norm_layer=norm_layer, stride=stride, dilation=dilation)
         layer2 = ResidualBlock(dim, dim, norm_layer=norm_layer, stride=1, dilation=dilation)
+
+        layers = (layer1, layer2)
+
+        self.in_planes = dim
+        return nn.Sequential(*layers)
+
+    def _make_layer_sphe(self, dim, stride=1, dilation=1, norm_layer=nn.InstanceNorm2d):
+        layer1 = ResidualBlock(self.in_planes, dim, norm_layer=norm_layer, stride=stride, dilation=dilation)
+        layer2 = ResidualBlock_sphe(dim, dim, norm_layer=norm_layer, stride=1, dilation=dilation)
 
         layers = (layer1, layer2)
 

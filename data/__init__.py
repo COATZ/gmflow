@@ -4,4 +4,6 @@ from .datasets import (FlyingChairs,
                        MpiSintel,
                        KITTI,
                        HD1K,
+                       OmniDataset,
+                       Flow360
                        )

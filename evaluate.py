@@ -562,6 +562,174 @@ def validate_kitti(model,
     return results
 
 
+def convert_360_gt(flow_gt):
+    '''Convert gt to 360 flow'''
+    flow_gt = flow_gt.unsqueeze(dim=0)
+    flow_gt[:, 0] = torch.where(flow_gt[:, 0] > (flow_gt.shape[3] // 2),
+                                flow_gt[:, 0] - flow_gt.shape[3],
+                                flow_gt[:, 0])
+    flow_gt[:, 0] = torch.where(flow_gt[:, 0] < -(flow_gt.shape[3] // 2),
+                                flow_gt.shape[3] + flow_gt[:, 0],
+                                flow_gt[:, 0])
+    return flow_gt.squeeze()
+
+
+@torch.no_grad()
+def validate_omni(model,
+                  padding_factor=8,
+                  with_speed_metric=False,
+                  max_val_flow=400,
+                  val_things_clean_only=True,
+                  attn_splits_list=False,
+                  corr_radius_list=False,
+                  prop_radius_list=False,
+                  cfe_activate=False
+                  ):
+    """ Peform validation using the Omni (test) split """
+    model.eval()
+    results = {}
+    epe_any = []
+    epe_m = []
+
+    for dstype in ['CartoonTree', 'Forest', 'LowPolyModels']:
+        val_dataset = data.OmniDataset(root="/media/cartizzu/DATA/DATASETS/OMNIFLOWNET_DATASET/", dstype=dstype)
+
+        print('Number of validation image pairs: %d' % len(val_dataset))
+        epe_list = []
+
+        for val_id in range(len(val_dataset)):
+            image1, image2, flow_gt, valid_gt = val_dataset[val_id]
+            image1 = image1[None].cuda()
+            image2 = image2[None].cuda()
+
+            padder = InputPadder(image1.shape, padding_factor=padding_factor)
+            image1, image2 = padder.pad(image1, image2)
+
+            # convert gt to 360 flow
+            if cfe_activate:
+                flow_gt = convert_360_gt(flow_gt)
+
+                # check if is 360 flow gt
+                if flow_gt[0, :, :].max() > flow_gt.shape[2]//2:
+                    raise "Not 360 Flow"
+
+            results_dict = model(image1, image2,
+                                 attn_splits_list=attn_splits_list,
+                                 corr_radius_list=corr_radius_list,
+                                 prop_radius_list=prop_radius_list,
+                                 )
+
+            flow_pr = results_dict['flow_preds'][-1]
+
+            flow = padder.unpad(flow_pr[0]).cpu()
+
+            # Evaluation on flow <= max_val_flow
+            flow_gt_speed = torch.sum(flow_gt ** 2, dim=0).sqrt()
+            valid_gt = valid_gt * (flow_gt_speed < max_val_flow)
+            valid_gt = valid_gt.contiguous()
+
+            epe = torch.sum((flow - flow_gt) ** 2, dim=0).sqrt()
+            val = valid_gt >= 0.5
+            epe_list.append(epe[val].cpu().numpy())
+
+        epe_any.append(epe_list)
+        epe_all = np.concatenate(epe_list)
+        epe = np.mean(epe_all)
+        epe_m.append(epe)
+
+        print("Validation Omni {} EPE : {}".format(dstype, epe))
+        results[dstype + '_epe'] = epe
+        # import pdb
+        # pdb.set_trace()
+
+    # epe_final_all = np.concatenate(epe_any)
+    epe_final = np.mean(epe_m)
+    print("Validation Omni (final) EPE : {}".format(epe_final))
+    results['final'] = epe_final
+
+    if cfe_activate:
+        print("CFE is activated: Flow is 360")
+
+    return results
+
+
+@torch.no_grad()
+def validate_flow360(model,
+                     padding_factor=8,
+                     with_speed_metric=False,
+                     max_val_flow=400,
+                     val_things_clean_only=True,
+                     attn_splits_list=False,
+                     corr_radius_list=False,
+                     prop_radius_list=False,
+                     cfe_activate=False
+                     ):
+    """ Peform validation using the Flow360 (test) split """
+    model.eval()
+    results = {}
+    epe_any = []
+    epe_m = []
+
+    for dstype in ['cloud', 'fog', 'rain', 'sunny']:
+        val_dataset = data.Flow360(split='test', root="/media/cartizzu/DATA/DATASETS/Flow360_release/", dstype=dstype)
+
+        print('Number of validation image pairs: %d' % len(val_dataset))
+        epe_list = []
+
+        for val_id in range(len(val_dataset)):
+            image1, image2, flow_gt, valid_gt = val_dataset[val_id]
+            image1 = image1[None].cuda()
+            image2 = image2[None].cuda()
+
+            padder = InputPadder(image1.shape, padding_factor=padding_factor)
+            image1, image2 = padder.pad(image1, image2)
+
+            # convert gt to 360 flow
+            if cfe_activate:
+                flow_gt = convert_360_gt(flow_gt)
+
+                # check if is 360 flow gt
+                if flow_gt[0, :, :].max() > flow_gt.shape[2]//2:
+                    raise "Not 360 Flow"
+
+            results_dict = model(image1, image2,
+                                 attn_splits_list=attn_splits_list,
+                                 corr_radius_list=corr_radius_list,
+                                 prop_radius_list=prop_radius_list,
+                                 )
+
+            flow_pr = results_dict['flow_preds'][-1]
+
+            flow = padder.unpad(flow_pr[0]).cpu()
+
+            # Evaluation on flow <= max_val_flow
+            flow_gt_speed = torch.sum(flow_gt ** 2, dim=0).sqrt()
+            valid_gt = valid_gt * (flow_gt_speed < max_val_flow)
+            valid_gt = valid_gt.contiguous()
+
+            epe = torch.sum((flow - flow_gt) ** 2, dim=0).sqrt()
+            val = valid_gt >= 0.5
+            epe_list.append(epe[val].cpu().numpy())
+
+        epe_any.append(epe_list)
+        epe_all = np.concatenate(epe_list)
+        epe = np.mean(epe_all)
+        epe_m.append(epe)
+
+        print("Validation Flow360 {} EPE : {}".format(dstype, epe))
+        results[dstype + '_epe'] = epe
+
+    # epe_final_all = np.concatenate(epe_any)
+    epe_final = np.mean(epe_m)
+    print("Validation Flow360 (final) EPE : {}".format(epe_final))
+    results['final'] = epe_final
+
+    if cfe_activate:
+        print("CFE is activated: Flow is 360")
+
+    return results
+
+
 @torch.no_grad()
 def inference_on_dir(model,
                      inference_dir,
