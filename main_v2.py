@@ -268,7 +268,7 @@ def main(args):
             val_results.update(results_dict)
 
         if 'omni' in args.val_dataset:
-            add_args = "E1+UP"
+            add_args = "baseline_v2"
             ckpt_name = args.resume.split("_")[-1].split(".")[0]
             # print(str(args.validation[0]))
             run_name = os.path.join('./OUTPUT/', 'EVAL_'+str(args.val_dataset[0])+'_'+ckpt_name+'_'+add_args+'_'+str(args.cfe_activate)+'.txt')
