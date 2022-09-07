@@ -28,7 +28,7 @@ def equi_coord(pano_W, pano_H, k_W, k_H, u, v):
     """ code by cfernandez and jmfacil """
     fov_w = k_W * math.radians(360./float(pano_W))
     focal = (float(k_W)/2) / math.tan(fov_w/2)
-    #print(focal)
+    # print(focal)
     c_x = 0
     c_y = 0
 
@@ -73,7 +73,7 @@ def equi_coord(pano_W, pano_H, k_W, k_H, u, v):
 
 def distortion_aware_map(pano_W, pano_H, k_W, k_H, s_width=1, s_height=1, bs=16):
     """ code by cfernandez and jmfacil """
-    #n=1
+    # n=1
     offset = torch.zeros(2*k_H*k_W, pano_H, pano_W, device='cpu', dtype=torch.float32)
 
     for v in range(0, pano_H, s_height):
@@ -87,13 +87,13 @@ def distortion_aware_map(pano_W, pano_H, k_W, k_H, s_width=1, s_height=1, bs=16)
     offset = torch.cat([offset for _ in range(bs)], dim=0)
     offset.requires_grad_(False)
     print(offset.shape)
-    #print(offset)
+    # print(offset)
     return offset
 
 
 def distortion_aware_col(pano_W, pano_H, k_W, k_H, s_width=1, s_height=1, bs=1):
     """ code by cfernandez and jmfacil """
-    #n=1
+    # n=1
     print(pano_W, pano_H, k_W, k_H, s_width, s_height, bs)
     offset = torch.zeros(2*k_H*k_W, pano_H, 1, device='cpu', dtype=torch.float32)
 
@@ -108,7 +108,7 @@ def distortion_aware_col(pano_W, pano_H, k_W, k_H, s_width=1, s_height=1, bs=1):
     offset = torch.cat([offset for _ in range(bs)], dim=0)
     offset.requires_grad_(False)
     print(offset.shape)
-    #print(offset)
+    # print(offset)
     return offset
 
 
@@ -120,18 +120,18 @@ arguments_STRIDE = 1
 arguments_DILATION = 1
 
 for strOption, strArgument in getopt.getopt(sys.argv[1:], '', [strParameter[2:] + '=' for strParameter in sys.argv[1::2]])[0]:
-	if strOption == '--w' and strArgument != '':
-	    arguments_WIDTH = strArgument
-	if strOption == '--h' and strArgument != '':
-	    arguments_HEIGHT = strArgument
-	if strOption == '--k' and strArgument != '':
-	    arguments_KERNEL = strArgument
-	if strOption == '--p' and strArgument != '':
-	    arguments_PADDING = strArgument
-	if strOption == '--s' and strArgument != '':
-	    arguments_STRIDE = strArgument
-	if strOption == '--d' and strArgument != '':
-	    arguments_DILATION = strArgument
+    if strOption == '--w' and strArgument != '':
+        arguments_WIDTH = strArgument
+    if strOption == '--h' and strArgument != '':
+        arguments_HEIGHT = strArgument
+    if strOption == '--k' and strArgument != '':
+        arguments_KERNEL = strArgument
+    if strOption == '--p' and strArgument != '':
+        arguments_PADDING = strArgument
+    if strOption == '--s' and strArgument != '':
+        arguments_STRIDE = strArgument
+    if strOption == '--d' and strArgument != '':
+        arguments_DILATION = strArgument
 
 if __name__ == "__main__":
 
@@ -141,7 +141,7 @@ if __name__ == "__main__":
     stride = int(arguments_STRIDE)
     padding = int(arguments_PADDING)
     dilation = int(arguments_DILATION)
-    #print(input.dtype)
+    # print(input.dtype)
 
     stride_h, stride_w = _pair(stride)
     pad_h, pad_w = _pair(padding)
@@ -155,8 +155,10 @@ if __name__ == "__main__":
     print(pano_W, pano_H, weights_w, weights_h, stride_w, stride_h, dilation)
 
     offset = distortion_aware_map(pano_W, pano_H, weights_w, weights_h, s_width=stride_w, s_height=stride_h, bs=bs)
-    torch.save(offset, './OFFSETS/offset_'+str(pano_W)+'_'+str(pano_H)+'_'+str(weights_w)+'_'+str(weights_h)+'_'+str(stride_w)+'_'+str(stride_h)+'_'+str(dilation)+'.pt')
-    #offset_col = distortion_aware_col(pano_W, pano_H, weights_w, weights_h, s_width = stride_w, s_height = stride_h, bs = bs)
-    #torch.save(offset_col,'./OFFSETS/offset_col_'+str(pano_H)+'_'+str(weights_w)+'_'+str(weights_h)+'_'+str(stride_w)+'_'+str(stride_h)+'_'+str(bs)+'.pt')
 
-    #offset = offset.to(input.device)
+    torch.save(offset, './OFFSETS/offset_'+str(pano_W)+'_'+str(pano_H)+'_'+str(weights_w)+'_'+str(weights_h)+'_'+str(stride_w)+'_'+str(stride_h)+'_'+str(dilation)+'.pt')
+
+    # offset_col = distortion_aware_col(pano_W, pano_H, weights_w, weights_h, s_width = stride_w, s_height = stride_h, bs = bs)
+    # torch.save(offset_col,'./OFFSETS/offset_col_'+str(pano_H)+'_'+str(weights_w)+'_'+str(weights_h)+'_'+str(stride_w)+'_'+str(stride_h)+'_'+str(bs)+'.pt')
+
+    # offset = offset.to(input.device)

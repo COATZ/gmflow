@@ -1,0 +1,19 @@
+MP4 to PNG
+
+ffmpeg -r 1 -i R0010026\[1\]_er.MP4 -r 1 -s 1600x800 Office_5/images/out-%03d.png
+
+
+
+
+
+PNG to MP4
+
+ffmpeg -framerate 25 -start_number 0 -i LiteFlowNet2-ft-sintel-0000%3d.png -frames:v 9 output.mp4
+
+
+
+
+RENAME FILES
+
+ls | cat -n | while read n f; do mv "$f" `printf "out-%03d.png" $n`; done
+
