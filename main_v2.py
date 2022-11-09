@@ -290,7 +290,7 @@ def main(args):
             print(results_dict, file=save_file)
 
         if 'flow360' in args.val_dataset:
-            add_args = "E1_v2"
+            add_args = "baseline"
             ckpt_name = args.resume.split("_")[-1].split(".")[0]
             # print(str(args.validation[0]))
             run_name = os.path.join('./OUTPUT/', 'EVAL_'+str(args.val_dataset[0])+'_'+ckpt_name+'_'+add_args+'_'+str(args.cfe_activate)+'.txt')

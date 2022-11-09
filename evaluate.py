@@ -707,6 +707,10 @@ def validate_flow360(model,
             valid_gt = valid_gt * (flow_gt_speed < max_val_flow)
             valid_gt = valid_gt.contiguous()
 
+            # if val_id == 0:
+            #     print("WARNING TOP BOTTOM OF IMAGE CROPPED!")
+            # valid_gt[255:, :] = 0
+
             epe = torch.sum((flow - flow_gt) ** 2, dim=0).sqrt()
             val = valid_gt >= 0.5
             epe_list.append(epe[val].cpu().numpy())
