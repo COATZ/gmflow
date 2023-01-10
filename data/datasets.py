@@ -318,6 +318,49 @@ class Flow360(FlowDataset):
 
             self.flow_list += sorted(glob(osp.join(flow_root, scene, '*.flo')))
 
+
+class CityScene(FlowDataset):
+
+    def __init__(self,
+                 aug_params=None,
+                 split='',
+                 root='datasets/CityScene',
+                 dstype='CityScene_100_r'):
+        super(CityScene, self).__init__(aug_params)
+
+        flow_root = osp.join(root, split, dstype, 'flow')
+        image_root = osp.join(root, split, dstype, 'image')
+
+        image_list = sorted(glob(osp.join(image_root, '*.png')))
+        for i in range(len(image_list) - 1):
+            self.image_list += [[image_list[i], image_list[i + 1]]]
+            self.extra_info += [(i)]  # scene and frame_id
+
+        self.flow_list += sorted(glob(osp.join(flow_root, '*.flo')))
+        # print(self.flow_list)
+
+
+class EFT(FlowDataset):
+
+    def __init__(self,
+                 aug_params=None,
+                 split='',
+                 root='datasets/EquirectFlyingThings',
+                 dstype='EFTs_Car100'):
+        super(EFT, self).__init__(aug_params)
+
+        flow_root = osp.join(root, split, dstype, 'flow')
+        image_root = osp.join(root, split, dstype, 'image')
+
+        image_list = sorted(glob(osp.join(image_root, '*.png')))
+        for i in range(len(image_list) - 1):
+            self.image_list += [[image_list[i], image_list[i + 1]]]
+            self.extra_info += [(i)]  # scene and frame_id
+
+        self.flow_list += sorted(glob(osp.join(flow_root, '*.flo')))
+        # print(self.flow_list)
+
+
 def build_train_dataset(args):
     """ Create the data loader for the corresponding training set """
     if args.stage == 'chairs':

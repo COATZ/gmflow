@@ -14,6 +14,38 @@ from glob import glob
 from gmflow.geometry import forward_backward_consistency_check
 
 
+def calculate_great_circle_distance(input_flow, target_flow, grid):
+    input = torch.clone(input_flow)
+    gt = torch.clone(target_flow)
+    input[0, :, :] = input[0, :, :] / (1024/2) * 3.1415926
+    input[1, :, :] = input[1, :, :] / (512/2) * 3.1415926
+    gt[0, :, :] = gt[0, :, :] / (1024/2) * 3.1415926
+    gt[1, :, :] = gt[1, :, :] / (512/2) * 3.1415926
+    input = grid + input
+    gt = grid + gt
+    theta = input[0, :, :]
+    phi = input[1, :, :]
+
+    _x = torch.cos(phi) * torch.cos(theta)
+    _y = torch.sin(phi)
+    _z = torch.cos(phi) * torch.sin(theta)
+    gt_theta = gt[0, :, :]
+    gt_phi = gt[1, :, :]
+
+    gt_x = torch.cos(gt_phi) * torch.cos(gt_theta)
+    gt_y = torch.sin(gt_phi)
+    gt_z = torch.cos(gt_phi) * torch.sin(gt_theta)
+    dot_result = _x * gt_x + _y * gt_y + _z * gt_z
+    dot_result[dot_result < -1] = -1
+    dot_result[dot_result > 1] = 1
+    angle = torch.arccos(dot_result)
+
+    arc = angle * 1024.0 / (2 * 3.1415926)
+
+    ret = arc.mean()
+    return ret
+
+
 @torch.no_grad()
 def create_sintel_submission(model,
                              output_path='sintel_submission',
@@ -726,6 +758,176 @@ def validate_flow360(model,
     # epe_final_all = np.concatenate(epe_any)
     epe_final = np.mean(epe_m)
     print("Validation Flow360 (final) EPE : {}".format(epe_final))
+    results['final'] = epe_final
+
+    if cfe_activate:
+        print("CFE is activated: Flow is 360")
+
+    return results
+
+
+@torch.no_grad()
+def validate_cityscene(model,
+                       padding_factor=8,
+                       with_speed_metric=False,
+                       max_val_flow=400,
+                       val_things_clean_only=True,
+                       attn_splits_list=False,
+                       corr_radius_list=False,
+                       prop_radius_list=False,
+                       cfe_activate=False
+                       ):
+    """ Peform validation using the Cityscene split """
+    model.eval()
+    results = {}
+    epe_any = []
+    epe_m = []
+
+    for dstype in ['CityScene_100_r', 'CityScene_200_r', 'CityScene_2000_r']:
+        val_dataset = data.CityScene(split='', root="/media/cartizzu/DATA/DATASETS/CityScene/", dstype=dstype)
+
+        print('Number of validation image pairs: %d' % len(val_dataset))
+        epe_list = []
+
+        for val_id in range(len(val_dataset)):
+            image1, image2, flow_gt, valid_gt = val_dataset[val_id]
+            image1 = image1[None].cuda()
+            image2 = image2[None].cuda()
+
+            padder = InputPadder(image1.shape, padding_factor=padding_factor)
+            image1, image2 = padder.pad(image1, image2)
+
+            # # convert gt to 360 flow
+            # if cfe_activate:
+            #     flow_gt = convert_360_gt(flow_gt)
+
+            #     # check if is 360 flow gt
+            #     if flow_gt[0, :, :].max() > flow_gt.shape[2]//2:
+            #         raise "Not 360 Flow"
+
+            results_dict = model(image1, image2,
+                                 attn_splits_list=attn_splits_list,
+                                 corr_radius_list=corr_radius_list,
+                                 prop_radius_list=prop_radius_list,
+                                 )
+
+            flow_pr = results_dict['flow_preds'][-1]
+
+            flow = padder.unpad(flow_pr[0]).cpu()
+
+            # Evaluation on flow <= max_val_flow
+            flow_gt_speed = torch.sum(flow_gt ** 2, dim=0).sqrt()
+            valid_gt = valid_gt * (flow_gt_speed < max_val_flow)
+            valid_gt = valid_gt.contiguous()
+
+            # if val_id == 0:
+            #     print("WARNING TOP BOTTOM OF IMAGE CROPPED!")
+            if cfe_activate:
+                if val_id == 0:
+                    print("WARNING TOP and BOTTOM OF IMAGE CROPPED!")
+                valid_gt[:100, :] = 0
+                valid_gt[412:, :] = 0
+
+            epe = torch.sum((flow - flow_gt) ** 2, dim=0).sqrt()
+            val = valid_gt >= 0.5
+            epe_list.append(epe[val].cpu().numpy())
+
+        epe_any.append(epe_list)
+        epe_all = np.concatenate(epe_list)
+        epe = np.mean(epe_all)
+        epe_m.append(epe)
+
+        print("Validation CityScene {} EPE : {}".format(dstype, epe))
+        results[dstype + '_epe'] = epe
+
+    # epe_final_all = np.concatenate(epe_any)
+    epe_final = np.mean(epe_m)
+    print("Validation CityScene (final) EPE : {}".format(epe_final))
+    results['final'] = epe_final
+
+    if cfe_activate:
+        print("CFE is activated: Flow is 360")
+
+    return results
+
+
+@torch.no_grad()
+def validate_EFT(model,
+                 padding_factor=8,
+                 with_speed_metric=False,
+                 max_val_flow=400,
+                 val_things_clean_only=True,
+                 attn_splits_list=False,
+                 corr_radius_list=False,
+                 prop_radius_list=False,
+                 cfe_activate=False
+                 ):
+    """ Peform validation using the EFT split """
+    model.eval()
+    results = {}
+    epe_any = []
+    epe_m = []
+
+    for dstype in ['EFTs_Car100', 'EFTs_Car200', 'EFTs_Car2000']:
+        val_dataset = data.EFT(split='', root="/media/cartizzu/DATA/DATASETS/EquirectFlyingThings/", dstype=dstype)
+
+        print('Number of validation image pairs: %d' % len(val_dataset))
+        epe_list = []
+
+        for val_id in range(len(val_dataset)):
+            image1, image2, flow_gt, valid_gt = val_dataset[val_id]
+            image1 = image1[None].cuda()
+            image2 = image2[None].cuda()
+
+            padder = InputPadder(image1.shape, padding_factor=padding_factor)
+            image1, image2 = padder.pad(image1, image2)
+
+            # convert gt to 360 flow
+            if cfe_activate:
+                flow_gt = convert_360_gt(flow_gt)
+
+                # check if is 360 flow gt
+                if flow_gt[0, :, :].max() > flow_gt.shape[2]//2:
+                    raise "Not 360 Flow"
+
+            results_dict = model(image1, image2,
+                                 attn_splits_list=attn_splits_list,
+                                 corr_radius_list=corr_radius_list,
+                                 prop_radius_list=prop_radius_list,
+                                 )
+
+            flow_pr = results_dict['flow_preds'][-1]
+
+            flow = padder.unpad(flow_pr[0]).cpu()
+
+            # Evaluation on flow <= max_val_flow
+            flow_gt_speed = torch.sum(flow_gt ** 2, dim=0).sqrt()
+            valid_gt = valid_gt * (flow_gt_speed < max_val_flow)
+            valid_gt = valid_gt.contiguous()
+
+            if cfe_activate:
+                if val_id == 0:
+                    print("WARNING TOP and BOTTOM OF IMAGE CROPPED!")
+                valid_gt[:100, :] = 0
+                valid_gt[412:, :] = 0
+                valid_gt[:, :20] = 0
+                valid_gt[:, 1004:] = 0
+
+            epe = torch.sum((flow - flow_gt) ** 2, dim=0).sqrt()
+            val = valid_gt >= 0.5
+            epe_list.append(epe[val].cpu().numpy())
+
+        epe_any.append(epe_list)
+        epe_all = np.concatenate(epe_list)
+        epe = np.mean(epe_all)
+        epe_m.append(epe)
+
+        print("Validation EFT {} EPE : {}".format(dstype, epe))
+        results[dstype + '_epe'] = epe
+
+    # epe_final_all = np.concatenate(epe_any)
+    epe_final = np.mean(epe_m)
+    print("Validation EFT (final) EPE : {}".format(epe_final))
     results['final'] = epe_final
 
     if cfe_activate:

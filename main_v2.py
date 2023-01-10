@@ -9,7 +9,7 @@ import os
 from data import build_train_dataset
 from gmflow.gmflow import GMFlow
 from loss import flow_loss_func
-from evaluate import (validate_chairs, validate_things, validate_sintel, validate_kitti, validate_omni, validate_flow360,
+from evaluate import (validate_chairs, validate_things, validate_sintel, validate_kitti, validate_omni, validate_flow360, validate_cityscene, validate_EFT,
                       create_sintel_submission, create_kitti_submission, inference_on_dir)
 
 from utils.logger import Logger
@@ -308,6 +308,50 @@ def main(args):
                                             prop_radius_list=args.prop_radius_list,
                                             cfe_activate=args.cfe_activate,
                                             )
+            val_results.update(results_dict)
+            print(results_dict, file=save_file)
+
+        if 'cityscene' in args.val_dataset:
+            add_args = "baseline"
+            ckpt_name = args.resume.split("_")[-1].split(".")[0]
+            # print(str(args.validation[0]))
+            run_name = os.path.join('./OUTPUT/', 'EVAL_'+str(args.val_dataset[0])+'_'+ckpt_name+'_'+add_args+'_'+str(args.cfe_activate)+'.txt')
+            print(run_name)
+            save_file = open(run_name, 'w')
+            save_file.write(args.resume)
+            save_file.write('\n\n')
+            save_file.write(repr(model))
+            save_file.write('\n\n')
+            results_dict = validate_cityscene(model_without_ddp,
+                                              padding_factor=args.padding_factor,
+                                              with_speed_metric=args.with_speed_metric,
+                                              attn_splits_list=args.attn_splits_list,
+                                              corr_radius_list=args.corr_radius_list,
+                                              prop_radius_list=args.prop_radius_list,
+                                              cfe_activate=args.cfe_activate,
+                                              )
+            val_results.update(results_dict)
+            print(results_dict, file=save_file)
+
+        if 'eft' in args.val_dataset:
+            add_args = "baseline"
+            ckpt_name = args.resume.split("_")[-1].split(".")[0]
+            # print(str(args.validation[0]))
+            run_name = os.path.join('./OUTPUT/', 'EVAL_'+str(args.val_dataset[0])+'_'+ckpt_name+'_'+add_args+'_'+str(args.cfe_activate)+'.txt')
+            print(run_name)
+            save_file = open(run_name, 'w')
+            save_file.write(args.resume)
+            save_file.write('\n\n')
+            save_file.write(repr(model))
+            save_file.write('\n\n')
+            results_dict = validate_EFT(model_without_ddp,
+                                        padding_factor=args.padding_factor,
+                                        with_speed_metric=args.with_speed_metric,
+                                        attn_splits_list=args.attn_splits_list,
+                                        corr_radius_list=args.corr_radius_list,
+                                        prop_radius_list=args.prop_radius_list,
+                                        cfe_activate=args.cfe_activate,
+                                        )
             val_results.update(results_dict)
             print(results_dict, file=save_file)
 

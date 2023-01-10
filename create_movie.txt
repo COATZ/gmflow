@@ -17,3 +17,10 @@ RENAME FILES
 
 ls | cat -n | while read n f; do mv "$f" `printf "out-%03d.png" $n`; done
 
+
+CREATE_FLOW_MERGED
+
+sh group_out_img.sh OUTPUT_512x256/baseline_sintel/ OUTPUT_512x256/E1_sintel/
+ffmpeg -framerate 1 -start_number 0 -i OUTPUT_CAR1/E1_things/%3d_rgb_flow_merged.png output_CAR1_E1.mp4
+
+

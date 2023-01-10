@@ -5,5 +5,7 @@ from .datasets import (FlyingChairs,
                        KITTI,
                        HD1K,
                        OmniDataset,
-                       Flow360
+                       Flow360,
+                       CityScene,
+                       EFT
                        )
