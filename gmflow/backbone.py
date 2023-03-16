@@ -2,7 +2,7 @@ import torch.nn as nn
 
 from .trident_conv import MultiScaleTridentConv
 
-from gmflow.DeformConv2d_sphe import DeformConv2d_sphe2
+from gmflow.DeformConv2d_sphe import DeformConv2d_sphe
 
 
 class ResidualBlock(nn.Module):
@@ -11,9 +11,9 @@ class ResidualBlock(nn.Module):
         super(ResidualBlock, self).__init__()
 
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, dilation=dilation, padding=dilation, stride=stride, bias=False)
-        # self.conv1 = DeformConv2d_sphe2(in_planes, planes, kernel_size=3, dilation=dilation, padding=dilation, stride=stride, bias=False)
+        # self.conv1 = DeformConv2d_sphe(in_planes, planes, kernel_size=3, dilation=dilation, padding=dilation, stride=stride, bias=False)
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, dilation=dilation, padding=dilation, bias=False)
-        # self.conv2 = DeformConv2d_sphe2(planes, planes, kernel_size=3, dilation=dilation, padding=dilation, bias=False)
+        # self.conv2 = DeformConv2d_sphe(planes, planes, kernel_size=3, dilation=dilation, padding=dilation, bias=False)
         self.relu = nn.ReLU(inplace=True)
 
         self.norm1 = norm_layer(planes)
@@ -44,9 +44,9 @@ class ResidualBlock_sphe(nn.Module):
         super(ResidualBlock_sphe, self).__init__()
 
         # self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, dilation=dilation, padding=dilation, stride=stride, bias=False)
-        self.conv1 = DeformConv2d_sphe2(in_planes, planes, kernel_size=3, dilation=dilation, padding=dilation, stride=stride, bias=False)
+        self.conv1 = DeformConv2d_sphe(in_planes, planes, kernel_size=3, dilation=dilation, padding=dilation, stride=stride, bias=False)
         # self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, dilation=dilation, padding=dilation, bias=False)
-        self.conv2 = DeformConv2d_sphe2(planes, planes, kernel_size=3, dilation=dilation, padding=dilation, bias=False)
+        self.conv2 = DeformConv2d_sphe(planes, planes, kernel_size=3, dilation=dilation, padding=dilation, bias=False)
         self.relu = nn.ReLU(inplace=True)
 
         self.norm1 = norm_layer(planes)
@@ -82,8 +82,8 @@ class CNNEncoder(nn.Module):
 
         feature_dims = [64, 96, 128]
 
-        self.conv1 = nn.Conv2d(3, feature_dims[0], kernel_size=7, stride=2, padding=3, bias=False)  # 1/2
-        # self.conv1 = DeformConv2d_sphe2(3, feature_dims[0], kernel_size=7, stride=2, padding=3, bias=False)  # 1/2
+        # self.conv1 = nn.Conv2d(3, feature_dims[0], kernel_size=7, stride=2, padding=3, bias=False)  # 1/2
+        self.conv1 = DeformConv2d_sphe(3, feature_dims[0], kernel_size=7, stride=2, padding=3, bias=False)  # 1/2
         self.norm1 = norm_layer(feature_dims[0])
         self.relu1 = nn.ReLU(inplace=True)
 
@@ -117,7 +117,7 @@ class CNNEncoder(nn.Module):
                                                       )
 
         for m in self.modules():
-            if isinstance(m, nn.Conv2d) or isinstance(m, DeformConv2d_sphe2):
+            if isinstance(m, nn.Conv2d) or isinstance(m, DeformConv2d_sphe):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
             elif isinstance(m, (nn.BatchNorm2d, nn.InstanceNorm2d, nn.GroupNorm)):
                 if m.weight is not None:

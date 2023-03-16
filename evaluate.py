@@ -622,9 +622,12 @@ def validate_omni(model,
     results = {}
     epe_any = []
     epe_m = []
+    
 
     for dstype in ['CartoonTree', 'Forest', 'LowPolyModels']:
         val_dataset = data.OmniDataset(root="/media/cartizzu/DATA/DATASETS/OMNIFLOWNET_DATASET/", dstype=dstype)
+        
+        sum_time = 0
 
         print('Number of validation image pairs: %d' % len(val_dataset))
         epe_list = []
@@ -644,12 +647,17 @@ def validate_omni(model,
                 # check if is 360 flow gt
                 if flow_gt[0, :, :].max() > flow_gt.shape[2]//2:
                     raise "Not 360 Flow"
-
+            start_time = time.time()
             results_dict = model(image1, image2,
                                  attn_splits_list=attn_splits_list,
                                  corr_radius_list=corr_radius_list,
                                  prop_radius_list=prop_radius_list,
                                  )
+            loc_time = 100*(time.time() - start_time)
+            if val_id != 0:
+                sum_time = sum_time + float(loc_time)
+            # print("Total execution time: {0:.3f} ms".format(sum_time))
+            # print("Total per item: {0:.3f} ms".format(loc_time))
 
             flow_pr = results_dict['flow_preds'][-1]
 
@@ -668,6 +676,10 @@ def validate_omni(model,
         epe_all = np.concatenate(epe_list)
         epe = np.mean(epe_all)
         epe_m.append(epe)
+
+        print(len(val_dataset))
+        print("Total execution time: {0:.3f} ms".format(sum_time))
+        print("Total per item: {0:.3f} ms".format(sum_time/len(val_dataset)))
 
         print("Validation Omni {} EPE : {}".format(dstype, epe))
         results[dstype + '_epe'] = epe

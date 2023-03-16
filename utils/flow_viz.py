@@ -281,6 +281,22 @@ def save_vis_flow_tofile(flow, output_path):
     img.save(output_path)
 
 
+def flo2png():
+    import utils.frame_utils as fu
+    import os
+    dataset_folder = "/media/cartizzu/DATA/DATASETS/CityScene/CityScene_100_r/flow/"
+    out_folder = "/media/cartizzu/DATA/DATASETS/CityScene/CityScene_100_r/flow_image/"
+    # dataset_folder = "/media/cartizzu/DATA/DATASETS/EquirectFlyingThings/EFTs_Car100/flow/"
+    # out_folder = "/media/cartizzu/DATA/DATASETS/EquirectFlyingThings/EFTs_Car100/flow_image/"
+    list_gt_flow = [f for f in sorted(os.listdir(dataset_folder)) if (os.path.isfile(os.path.join(dataset_folder, f)) and f.endswith('.flo'))]
+    for flow_file in list_gt_flow:
+        print(flow_file)
+        flow = fu.readFlow(os.path.join(dataset_folder, flow_file))
+        out_file = os.path.join(out_folder,"gt_"+flow_file[:-4]+".png")
+        # print(out_file)
+        save_vis_flow_tofile(flow, out_file)
+
+
 def flow_tensor_to_image(flow):
     """Used for tensorboard visualization"""
     flow = flow.permute(1, 2, 0)  # [H, W, 2]
@@ -289,3 +305,4 @@ def flow_tensor_to_image(flow):
     flow = np.transpose(flow, (2, 0, 1))  # [3, H, W]
 
     return flow
+ 

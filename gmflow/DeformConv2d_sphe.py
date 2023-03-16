@@ -1,6 +1,5 @@
 import math
-import sys
-
+# import sys
 import torch
 from torch import nn, Tensor
 from torch.nn import init
@@ -114,7 +113,7 @@ def deform_conv2d(
         use_mask,)
 
 
-class DeformConv2d_sphe2(nn.Module):
+class DeformConv2d_sphe(nn.Module):
     """
     See :func:`deform_conv2d`.
     """
@@ -131,7 +130,7 @@ class DeformConv2d_sphe2(nn.Module):
         bias: bool = True,
         padding_mode="zeros"
     ):
-        super(DeformConv2d_sphe2, self).__init__()
+        super(DeformConv2d_sphe, self).__init__()
 
         if in_channels % groups != 0:
             raise ValueError('in_channels must be divisible by groups')
@@ -167,8 +166,6 @@ class DeformConv2d_sphe2(nn.Module):
             init.uniform_(self.bias, -bound, bound)
 
     def return_offset_sphe(self, x, isactiv=False, pad0=False, offset_file=''):
-        # h2 = int((x.shape[2]-self.kernel_size[0]+2*self.padding[0])/self.stride[0]+1)
-        # w2 = int((x.shape[3]-self.kernel_size[1]+2*self.padding[1])/self.stride[1]+1)
         # https://cs231n.github.io/convolutional-networks/
         h2 = int((x.shape[-2] + 2*self.padding[0] - self.kernel_size[0] - (self.kernel_size[0]-1)*(self.dilation[0]-1))/self.stride[0] + 1)
         w2 = int((x.shape[-1] + 2*self.padding[1] - self.kernel_size[1] - (self.kernel_size[1]-1)*(self.dilation[1]-1))/self.stride[1] + 1)
@@ -187,6 +184,7 @@ class DeformConv2d_sphe2(nn.Module):
         else:
             offset = torch.zeros(1, 2*self.kernel_size[0]*self.kernel_size[1], h2, w2).cuda()
         print("OFFSET Shape ", offset.shape)
+
         return offset
 
     def forward(self, input: Tensor, mask: Optional[Tensor] = None) -> Tensor:
@@ -202,20 +200,18 @@ class DeformConv2d_sphe2(nn.Module):
         """
 
         new_input = input
+        # print(input.shape, self.padding)
         # new_input = torch.nn.functional.pad(input, (self.padding[0], self.padding[0], self.padding[1], self.padding[1]), mode='circular')
 
-        #print(self.__repr__())
-        #print("INPUT Shape Sphe 2", input.shape)
+        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # mem_0 = torch.cuda.memory_allocated(device)
+        # print("Before Table: {} Diff: {}".format(mem_0, mem_0))
         if self.init == 0:
-            # h2 = int((x.shape[-2] + 2*self.padding[0] - self.kernel_size[0] - (self.kernel_size[0]-1)*(self.padding[0]-1))/self.stride[0] + 1)
-            # w2 = int((x.shape[-1] + 2*self.padding[1] - self.kernel_size[1] - (self.kernel_size[1]-1)*(self.padding[1]-1))/self.stride[1] + 1)
-
-            print("python3 gmflow/create_offset_tensor.py --w {} --h {} --k {} --s {} --p {} --d {}".format(input.shape[-1], input.shape[-2], self.kernel_size[0], self.stride[0], self.padding[0], self.dilation[0]))
-            # print("Using DeformConv2d_sphe")
-            # print("INPUT Shape Sphe 2", input.shape)
+            print("python3 create_offset_tensor.py --w {} --h {} --k {} --s {} --p {} --d {}".format(
+                new_input.shape[-1], new_input.shape[-2], self.kernel_size[0], self.stride[0], self.padding[0], self.dilation[0]))
             self.offset_sphe = self.return_offset_sphe(new_input, isactiv=True, pad0=False, offset_file='').cuda()
             self.offset_sphe.require_gradient = False
-            # self.offset_sphe = self.offset_sphe.type(torch.float16)
+            # self.offset_sphe = self.offset_sphe.type(torch.float16) # Need to activate in some case
             self.init = 1
 
             # for ux in range(self.offset_sphe.shape[-1]):
@@ -240,12 +236,9 @@ class DeformConv2d_sphe2(nn.Module):
             # print("Saving offset file: ", offset_filename)
             # torch.save(self.offset_sphe.cpu(), offset_filename)
 
-        # sys.exit()
         offset_sphe_cat = torch.cat([self.offset_sphe for _ in range(new_input.shape[0])], dim=0).cuda()
-
-        # print(new_input.shape)
-        # print(mask.shape)
-        # print(offset_sphe_cat.shape)
+        # mem_1 = torch.cuda.memory_allocated(device)
+        # print("After Table: {} Diff: {}".format(mem_1, mem_1-mem_0))
 
         return deform_conv2d(new_input, offset_sphe_cat, self.weight, self.bias, stride=self.stride,
                              padding=self.padding, dilation=self.dilation, mask=mask)
@@ -264,5 +257,3 @@ class DeformConv2d_sphe2(nn.Module):
         s += ', bias=False' if self.bias is None else ''
         s += ')'
         return s.format(**self.__dict__)
-
-

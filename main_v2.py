@@ -1,5 +1,5 @@
 import torch
-from torch.utils.data import DataLoader
+# from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 import argparse
@@ -15,13 +15,6 @@ from evaluate import (validate_chairs, validate_things, validate_sintel, validat
 from utils.logger import Logger
 from utils import misc
 from utils.dist_utils import get_dist_info, init_dist, setup_for_distributed
-
-
-# import sys
-# sys.path.append("/media/cartizzu/DATA/LIN/2_CODE/2_OPTICAL_FLOW/PanoFlow/")
-
-# from opticalflow.api import init_model
-# from opticalflow.api.evaluate import validate_flow360, validate_flow360_cfe, validate_omni_cfe, validate_omni
 
 
 def get_args_parser():
@@ -175,6 +168,10 @@ def main(args):
         print('Model definition:')
         print(model)
 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    mem_1 = torch.cuda.memory_allocated(device)
+    print("Before Execution: {} Diff: {}".format(mem_1, mem_1))
+
     if args.distributed:
         model = torch.nn.parallel.DistributedDataParallel(
             model.to(device),
@@ -189,6 +186,9 @@ def main(args):
             model_without_ddp = model.module
         else:
             model_without_ddp = model
+
+    mem_2 = torch.cuda.memory_allocated(device)
+    print("Before Execution: {} Diff: {}".format(mem_2, mem_2-mem_1))
 
     num_params = sum(p.numel() for p in model.parameters())
     print('Number of params:', num_params)
@@ -268,7 +268,7 @@ def main(args):
             val_results.update(results_dict)
 
         if 'omni' in args.val_dataset:
-            add_args = "E1_v2"
+            add_args = "E1_v4"
             ckpt_name = args.resume.split("_")[-1].split(".")[0]
             # print(str(args.validation[0]))
             run_name = os.path.join('./OUTPUT/', 'EVAL_'+str(args.val_dataset[0])+'_'+ckpt_name+'_'+add_args+'_'+str(args.cfe_activate)+'.txt')
