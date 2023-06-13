@@ -17,6 +17,8 @@ This repositeory contains the optical flow model used in our article "OMNI-CONV:
 }
 ```
 
+Preivous work on optical flow estimation: https://github.com/COATZ/OmniFlowNet .
+
 # Installation
 Create the python3 env and install packages:
 ```
